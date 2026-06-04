@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClickClock</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --accent: #c8f04a;
+    --accent2: #4af0c8;
+    --text: #f0eee8;
+    --muted: #6b6b7a;
+    --glow: rgba(200,240,74,0.18);
+    --glow2: rgba(74,240,200,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Atmospheric background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: -20%;
+    width: 70%;
+    height: 70%;
+    background: radial-gradient(ellipse, rgba(200,240,74,0.04) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    right: -10%;
+    width: 55%;
+    height: 55%;
+    background: radial-gradient(ellipse, rgba(74,240,200,0.04) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 2;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    padding: 48px 0 36px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.4rem, 6vw, 3.8rem);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .brand-name em {
+    font-style: italic;
+    color: var(--accent);
+    -webkit-text-fill-color: var(--accent);
+  }
+
+  .motto {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .live-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .live-dot::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 5px;
+    margin-bottom: 40px;
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 10px 28px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    letter-spacing: 0.03em;
+  }
+
+  .tab.active {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .tab:hover:not(.active) {
+    color: var(--text);
+  }
+
+  /* ─── WORLD CLOCK PANEL ─── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .clock-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 44px 44px 36px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .clock-hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: radial-gradient(ellipse, var(--glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .country-select-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+  }
+
+  .select-label {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .country-select {
+    flex: 1;
+    min-width: 220px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.92rem;
+    padding: 11px 16px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6b7a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 38px;
+    transition: border-color 0.2s;
+  }
+
+  .country-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .country-select option {
+    background: #1a1a24;
+  }
+
+  .add-btn {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+  }
+
+  .add-btn:hover {
+    background: #d4f560;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(200,240,74,0.3);
+  }
+
+  .add-btn:active { transform: translateY(0); }
+
+  /* ─── MAIN CLOCK FACE ─── */
+  .clock-face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .clock-location {
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .clock-time {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(3.4rem, 10vw, 6.5rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+    text-shadow: 0 0 60px rgba(200,240,74,0.15);
+  }
+
+  .clock-time .colon {
+    animation: blink 1s step-start infinite;
+    color: var(--accent);
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .clock-date {
+    font-size: 0.9rem;
+    color: var(--muted);
+    font-weight: 300;
+    letter-spacing: 0.06em;
+  }
+
+  .clock-tz {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(200,240,74,0.08);
+    border: 1px solid rgba(200,240,74,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+  }
+
+  /* ─── CLOCK CARDS ─── */
+  .clocks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .clock-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 22px 24px;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .clock-card:hover {
+    border-color: rgba(255,255,255,0.14);
+    transform: translateY(-2px);
+  }
+
+  .card-flag {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .card-city {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .card-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .card-date {
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .remove-btn {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s;
+  }
+
+  .remove-btn:hover {
+    border-color: #ff5555;
+    color: #ff5555;
+    background: rgba(255,85,85,0.08);
+  }
+
+  /* ─── STOPWATCH PANEL ─── */
+  .sw-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 52px 44px 44px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+
+  .sw-hero::before {
+    content: '';
+    position: absolute;
+    top: -80px; left: 50%;
+    transform: translateX(-50%);
+    width: 280px; height: 200px;
+    background: radial-gradient(ellipse, var(--glow2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .sw-display {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(3rem, 11vw, 7rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .sw-display.running {
+    color: var(--accent2);
+    text-shadow: 0 0 40px rgba(74,240,200,0.2);
+  }
+
+  .sw-ms {
+    font-size: 0.45em;
+    color: var(--muted);
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+
+  .sw-controls {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .sw-btn {
+    border: none;
+    border-radius: 50px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    font-size: 0.88rem;
+    padding: 14px 36px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    min-width: 120px;
+  }
+
+  .sw-btn.start {
+    background: var(--accent);
+    color: #0a0a0f;
+    box-shadow: 0 4px 20px rgba(200,240,74,0.25);
+  }
+  .sw-btn.start:hover {
+    background: #d4f560;
+    box-shadow: 0 6px 28px rgba(200,240,74,0.4);
+    transform: translateY(-1px);
+  }
+
+  .sw-btn.stop {
+    background: rgba(255,100,100,0.12);
+    color: #ff6464;
+    border: 1px solid rgba(255,100,100,0.25);
+  }
+  .sw-btn.stop:hover {
+    background: rgba(255,100,100,0.2);
+    transform: translateY(-1px);
+  }
+
+  .sw-btn.lap {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .sw-btn.lap:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    transform: translateY(-1px);
+  }
+
+  .sw-btn.reset {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .sw-btn.reset:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  .sw-btn:active { transform: translateY(0) scale(0.97); }
+
+  /* ─── LAPS TABLE ─── */
+  .laps-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+
+  .laps-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .laps-title {
+    font-size: 0.78rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .laps-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent2);
+  }
+
+  .laps-list {
+    max-height: 300px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .lap-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    animation: slideIn 0.25s ease;
+    font-size: 0.9rem;
+  }
+
+  .lap-row:last-child { border-bottom: none; }
+
+  .lap-num {
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    width: 60px;
+  }
+
+  .lap-split {
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .lap-total {
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .lap-row.best .lap-total { color: var(--accent); }
+  .lap-row.worst .lap-total { color: #ff6464; }
+
+  .empty-laps {
+    padding: 36px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── CLICK RIPPLE ─── */
+  @keyframes ripple {
+    to { transform: scale(3); opacity: 0; }
+  }
+
+  .ripple-el {
+    position: absolute;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(200,240,74,0.25);
+    pointer-events: none;
+    transform: scale(0);
+    animation: ripple 0.5s ease-out forwards;
+    margin-left: -15px; margin-top: -15px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 560px) {
+    .clock-hero, .sw-hero { padding: 28px 20px; }
+    .country-select-row { gap: 10px; }
+    .sw-controls { gap: 10px; }
+    .sw-btn { padding: 12px 22px; min-width: 100px; }
+    .laps-header, .lap-row { padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+
+<div class="wrapper">
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-name">Click<em>Clock</em></div>
+      <div class="motto">Accurate time · Every place · Always</div>
+    </div>
+    <div class="live-dot">Live</div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('world', this)">🌐 World Clock</button>
+    <button class="tab" onclick="switchTab('stopwatch', this)">⏱ Stopwatch</button>
+  </div>
+
+  <!-- ─── WORLD CLOCK PANEL ─── -->
+  <div class="panel active" id="panel-world">
+
+    <div class="clock-hero">
+      <div class="country-select-row">
+        <span class="select-label">Add city</span>
+        <select class="country-select" id="countrySelect">
+          <option value="">— Choose a location —</option>
+          <option value="America/New_York|🇺🇸|New York, USA">🇺🇸 New York, USA</option>
+          <option value="America/Los_Angeles|🇺🇸|Los Angeles, USA">🇺🇸 Los Angeles, USA</option>
+          <option value="America/Chicago|🇺🇸|Chicago, USA</option>
+          <option value="America/Denver|🇺🇸|Denver, USA">🇺🇸 Denver, USA</option>
+          <option value="America/Sao_Paulo|🇧🇷|São Paulo, Brazil">🇧🇷 São Paulo, Brazil</option>
+          <option value="Europe/London|🇬🇧|London, UK">🇬🇧 London, UK</option>
+          <option value="Europe/Paris|🇫🇷|Paris, France">🇫🇷 Paris, France</option>
+          <option value="Europe/Berlin|🇩🇪|Berlin, Germany">🇩🇪 Berlin, Germany</option>
+          <option value="Europe/Moscow|🇷🇺|Moscow, Russia">🇷🇺 Moscow, Russia</option>
+          <option value="Europe/Istanbul|🇹🇷|Istanbul, Turkey">🇹🇷 Istanbul, Turkey</option>
+          <option value="Africa/Cairo|🇪🇬|Cairo, Egypt">🇪🇬 Cairo, Egypt</option>
+          <option value="Africa/Lagos|🇳🇬|Lagos, Nigeria">🇳🇬 Lagos, Nigeria</option>
+          <option value="Africa/Johannesburg|🇿🇦|Johannesburg, South Africa">🇿🇦 Johannesburg, South Africa</option>
+          <option value="Asia/Dubai|🇦🇪|Dubai, UAE">🇦🇪 Dubai, UAE</option>
+          <option value="Asia/Karachi|🇵🇰|Karachi, Pakistan">🇵🇰 Karachi, Pakistan</option>
+          <option value="Asia/Kolkata|🇮🇳|Mumbai, India">🇮🇳 Mumbai, India</option>
+          <option value="Asia/Dhaka|🇧🇩|Dhaka, Bangladesh">🇧🇩 Dhaka, Bangladesh</option>
+          <option value="Asia/Bangkok|🇹🇭|Bangkok, Thailand">🇹🇭 Bangkok, Thailand</option>
+          <option value="Asia/Singapore|🇸🇬|Singapore">🇸🇬 Singapore</option>
+          <option value="Asia/Hong_Kong|🇭🇰|Hong Kong">🇭🇰 Hong Kong</option>
+          <option value="Asia/Shanghai|🇨🇳|Shanghai, China">🇨🇳 Shanghai, China</option>
+          <option value="Asia/Tokyo|🇯🇵|Tokyo, Japan">🇯🇵 Tokyo, Japan</option>
+          <option value="Asia/Seoul|🇰🇷|Seoul, South Korea">🇰🇷 Seoul, South Korea</option>
+          <option value="Australia/Sydney|🇦🇺|Sydney, Australia">🇦🇺 Sydney, Australia</option>
+          <option value="Pacific/Auckland|🇳🇿|Auckland, New Zealand">🇳🇿 Auckland, New Zealand</option>
+        </select>
+        <button class="add-btn" onclick="addClock()">+ Add</button>
+      </div>
+
+      <div class="clock-face">
+        <div class="clock-location" id="localLabel">Your Local Time</div>
+        <div class="clock-time" id="mainClock">
+          <span id="mainH">--</span><span class="colon">:</span><span id="mainM">--</span><span class="colon">:</span><span id="mainS">--</span>
+        </div>
+        <div class="clock-date" id="mainDate">---</div>
+        <div class="clock-tz" id="mainTZ">⬤ Local Timezone</div>
+      </div>
+    </div>
+
+    <div class="clocks-grid" id="clocksGrid"></div>
+  </div>
+
+  <!-- ─── STOPWATCH PANEL ─── -->
+  <div class="panel" id="panel-stopwatch">
+
+    <div class="sw-hero">
+      <div class="sw-display" id="swDisplay">
+        00<span class="colon" style="color:var(--accent2)">:</span>00<span class="colon" style="color:var(--accent2)">:</span>00<span class="sw-ms">.000</span>
+      </div>
+      <div class="sw-controls">
+        <button class="sw-btn start" id="swStartBtn" onclick="swStartStop()">Start</button>
+        <button class="sw-btn lap" onclick="swLap()" id="swLapBtn" disabled>Lap</button>
+        <button class="sw-btn reset" onclick="swReset()">Reset</button>
+      </div>
+    </div>
+
+    <div class="laps-section">
+      <div class="laps-header">
+        <span class="laps-title">Lap Times</span>
+        <span class="laps-count" id="lapsCount">0 laps</span>
+      </div>
+      <div class="laps-list" id="lapsList">
+        <div class="empty-laps" id="emptyLaps">No laps recorded yet</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── AUDIO ───
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playClick(type = 'soft') {
+  try {
+    const ctx = getAudioCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+
+    if (type === 'tick') {
+      o.frequency.setValueAtTime(1400, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.04);
+      g.gain.setValueAtTime(0.08, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+    } else if (type === 'lap') {
+      o.frequency.setValueAtTime(880, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.05);
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    } else {
+      o.frequency.setValueAtTime(700, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.06);
+      g.gain.setValueAtTime(0.1, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    }
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + 0.2);
+  } catch(e) {}
+}
+
+// Ripple effect
+function addRipple(e, btn) {
+  const r = document.createElement('div');
+  r.className = 'ripple-el';
+  const rect = btn.getBoundingClientRect();
+  r.style.left = (e.clientX - rect.left) + 'px';
+  r.style.top = (e.clientY - rect.top) + 'px';
+  btn.style.position = 'relative';
+  btn.style.overflow = 'hidden';
+  btn.appendChild(r);
+  setTimeout(() => r.remove(), 600);
+}
+
+document.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    playClick('soft');
+    addRipple(e, this);
+  });
+});
+
+// ─── TABS ───
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ─── WORLD CLOCK ───
+const clockCards = {};
+let mainTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function formatTimeInTZ(tz) {
+  const now = new Date();
+  const timeStr = new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, timeZone: tz
+  }).format(now);
+  return timeStr;
+}
+
+function formatDateInTZ(tz) {
+  const now = new Date();
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz
+  }).format(now);
+}
+
+function getOffset(tz) {
+  const now = new Date();
+  const local = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  const utc = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const diff = (local - utc) / 3600000;
+  const sign = diff >= 0 ? '+' : '-';
+  const abs = Math.abs(diff);
+  const h = Math.floor(abs);
+  const m = Math.round((abs - h) * 60);
+  return `UTC${sign}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function updateMainClock() {
+  const t = formatTimeInTZ(mainTZ).split(':');
+  document.getElementById('mainH').textContent = t[0] || '--';
+  document.getElementById('mainM').textContent = t[1] || '--';
+  document.getElementById('mainS').textContent = t[2] || '--';
+  document.getElementById('mainDate').textContent = formatDateInTZ(mainTZ);
+  document.getElementById('mainTZ').textContent = `⬤ ${mainTZ.replace('_',' ')} · ${getOffset(mainTZ)}`;
+}
+
+function addClock() {
+  const sel = document.getElementById('countrySelect');
+  const val = sel.value;
+  if (!val) return;
+  const [tz, flag, label] = val.split('|');
+  if (clockCards[tz]) return;
+
+  clockCards[tz] = { tz, flag: flag || '🌐', label: label || tz };
+  renderClock(tz);
+  sel.value = '';
+  playClick('lap');
+}
+
+function renderClock(tz) {
+  const { flag, label } = clockCards[tz];
+  const grid = document.getElementById('clocksGrid');
+  const card = document.createElement('div');
+  card.className = 'clock-card';
+  card.id = 'card-' + tz.replace(/\//g, '-');
+  card.innerHTML = `
+    <button class="remove-btn" onclick="removeClock('${tz}')" title="Remove">✕</button>
+    <span class="card-flag">${flag}</span>
+    <div class="card-city">${label}</div>
+    <div class="card-time" id="ct-${tz.replace(/\//g,'-')}">--:--:--</div>
+    <div class="card-date" id="cd-${tz.replace(/\//g,'-')}">---</div>
+  `;
+  grid.appendChild(card);
+}
+
+function removeClock(tz) {
+  delete clockCards[tz];
+  const id = 'card-' + tz.replace(/\//g, '-');
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  playClick('soft');
+}
+
+function updateAllCards() {
+  for (const tz in clockCards) {
+    const safeId = tz.replace(/\//g, '-');
+    const tEl = document.getElementById('ct-' + safeId);
+    const dEl = document.getElementById('cd-' + safeId);
+    if (tEl) tEl.textContent = formatTimeInTZ(tz);
+    if (dEl) dEl.textContent = formatDateInTZ(tz);
+  }
+}
+
+setInterval(() => {
+  updateMainClock();
+  updateAllCards();
+}, 1000);
+updateMainClock();
+
+// ─── STOPWATCH ───
+let swRunning = false;
+let swStartTime = 0;
+let swElapsed = 0;
+let swInterval = null;
+let swLaps = [];
+let swLastLapTime = 0;
+let swRAF = null;
+
+function pad(n, digits=2) { return String(Math.floor(n)).padStart(digits, '0'); }
+
+function formatSW(ms) {
+  const totalSec = ms / 1000;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = Math.floor(totalSec % 60);
+  const ms3 = Math.floor(ms % 1000);
+  return `${pad(h)}:${pad(m)}:${pad(s)}<span class="sw-ms">.${pad(ms3, 3)}</span>`;
+}
+
+function renderSW() {
+  const el = document.getElementById('swDisplay');
+  const now = swRunning ? swElapsed + (Date.now() - swStartTime) : swElapsed;
+  el.innerHTML = formatSW(now).replace(':', `<span class="colon" style="color:var(--accent2)">:</span>`).replace(':', `<span class="colon" style="color:var(--accent2)">:</span>`);
+  if (swRunning) swRAF = requestAnimationFrame(renderSW);
+}
+
+function swStartStop() {
+  const btn = document.getElementById('swStartBtn');
+  const lapBtn = document.getElementById('swLapBtn');
+
+  if (!swRunning) {
+    swStartTime = Date.now();
+    swRunning = true;
+    btn.textContent = 'Pause';
+    btn.classList.remove('start');
+    btn.classList.add('stop');
+    lapBtn.disabled = false;
+    document.getElementById('swDisplay').classList.add('running');
+    swRAF = requestAnimationFrame(renderSW);
+    playClick('lap');
+  } else {
+    swElapsed += Date.now() - swStartTime;
+    swRunning = false;
+    cancelAnimationFrame(swRAF);
+    btn.textContent = 'Resume';
+    btn.classList.remove('stop');
+    btn.classList.add('start');
+    document.getElementById('swDisplay').classList.remove('running');
+    playClick('soft');
+  }
+}
+
+function swLap() {
+  if (!swRunning) return;
+  const now = swElapsed + (Date.now() - swStartTime);
+  const split = now - swLastLapTime;
+  swLastLapTime = now;
+  swLaps.unshift({ total: now, split, num: swLaps.length + 1 });
+  renderLaps();
+  playClick('lap');
+}
+
+function swReset() {
+  cancelAnimationFrame(swRAF);
+  swRunning = false;
+  swElapsed = 0;
+  swStartTime = 0;
+  swLastLapTime = 0;
+  swLaps = [];
+  document.getElementById('swDisplay').innerHTML = `00<span class="colon" style="color:var(--accent2)">:</span>00<span class="colon" style="color:var(--accent2)">:</span>00<span class="sw-ms">.000</span>`;
+  document.getElementById('swDisplay').classList.remove('running');
+  document.getElementById('swStartBtn').textContent = 'Start';
+  document.getElementById('swStartBtn').classList.remove('stop');
+  document.getElementById('swStartBtn').classList.add('start');
+  document.getElementById('swLapBtn').disabled = true;
+  renderLaps();
+  playClick('soft');
+}
+
+function renderLaps() {
+  const list = document.getElementById('lapsList');
+  const empty = document.getElementById('emptyLaps');
+  document.getElementById('lapsCount').textContent = swLaps.length + ' lap' + (swLaps.length !== 1 ? 's' : '');
+
+  if (swLaps.length === 0) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    return;
+  }
+
+  const splits = swLaps.map(l => l.split);
+  const best = Math.min(...splits);
+  const worst = Math.max(...splits);
+
+  list.innerHTML = swLaps.map((lap, i) => {
+    const isBest = splits.length > 1 && lap.split === best;
+    const isWorst = splits.length > 1 && lap.split === worst;
+    const cls = isBest ? 'best' : isWorst ? 'worst' : '';
+    const badge = isBest ? ' ★ Best' : isWorst ? ' ▼ Slow' : '';
+    const lapNum = swLaps.length - i;
+    return `<div class="lap-row ${cls}">
+      <span class="lap-num">LAP ${lapNum}${badge}</span>
+      <span class="lap-split">${fmtMs(lap.split)}</span>
+      <span class="lap-total">${fmtMs(lap.total)}</span>
+    </div>`;
+  }).join('');
+}
+
+function fmtMs(ms) {
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const ms3 = Math.floor(ms % 1000);
+  return `${pad(m)}:${pad(s)}.${pad(ms3, 3)}`;
+}
+</script>
+</body>
+</html>
